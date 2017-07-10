@@ -25,11 +25,13 @@ class bagitObj:
 		## requests active clients registry from API
 		## every action in this object must be aware of this registry
 
-		## determine based on the registry which folder to search
+		## determine based on the registry which folder to search ()
 
 		## loop through files recently added
 		## first validity check ---- check directories of inactive clients and see if something was pushed
-			## this pushed content needs to be deleted and a notification sent out		
+			## this pushed content needs to be deleted and a notification sent out
+			## eventLog(inactiveClient)
+			## destroyPayload()
 
 			## second ---- check active client directories for new files
 				## perform basic validity checks on new files before they are added to queue
@@ -40,7 +42,8 @@ class bagitObj:
 					passBasicCheck()
 
 				## fails check:
-					#notification sent out
+					##notification sent out
+					## notifyClient(failValidityChecks)
 
 		## application runs
 			applicationRun()
