@@ -220,7 +220,7 @@ int main(int argc, char *argv[]) {
 
     // Didn't find anyone.
     if (numfound == 0) {
-        syslog(LOG_NOTICE, "FATAL: Could find user %s in LDAP.",line);
+        syslog(LOG_NOTICE, "FATAL: Could not find user %s in LDAP.",line);
         ldap_unbind(ld);
         exit(3);
     } else {

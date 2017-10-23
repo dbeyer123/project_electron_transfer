@@ -10,14 +10,13 @@
 #          /data/orgx/upload
 #  3) Set ownership and permissions for new directories 
 #  4) Update /etc/ssh2/sshd_config with new org and chown directory
-#| 5) Update /etc/rsyslog.d/sshd.conf with socket for new organization and restart rsyslog.
 #
 #
 #  Logging:  Output and error messages are placed in the the system log. 
 #                  tail -f /var/log/messages to view output in real time
 #
 #
-#  To run in DEBUG mode, set debug1  
+#  To run in DEBUG mode, set debug=1  
 #         
 #
 # ---------------------- Return Codes -------------------------
@@ -31,14 +30,7 @@
 # 
 #  $Id: RACaddorg,v 1.00 8/02/2017 URDB dI$
 #
-#
-#
-# Change Log:
-#
-# Modified by DKB - 8/4/2017  - Check to make sure the group exists before creating the directory. 
-#             DKB - 9/21/2017 - Add -l INFO to the line "ForceCommand internal-sftp -l INFO" 
-#             DKB - 9/27/2017 - Create entry in /etc/rsyslog.d/sshd.conf to create socket for new org
-#                             - Restart rsyslogd after creating new org with systemctl restart rsyslog.service
+# Modified by DKB - 8/4/2017 Check to make sure the group exists before creating the directory. 
 #
 #
 # Todo:  Need support to pass in the orgname and return values. 
@@ -106,16 +98,11 @@ org='org'
 count='0'
 for entry in `ls $search_dir`; do
     if echo "$entry" | grep -q "$org"; then
-       if [ ! $debug == '0' ] ; then echo "Existing org: $entry"; fi
-       newcount=$(echo $entry | cut -d'g' -f 2)                         #Assign what is after "org" to newcount
-       if [[ $entry == org ]] || [[ $entry == org* ]] ;  then           #Make sure "org" are the first three letters.
-        re='^[0-9]+$'
-        if [[ $newcount =~ $re ]] ; then                                #Make sure what follows "org" is an integer.
-           if [ $(($newcount)) -gt $(($count)) ];  then                 #Convert to integer and compair if biggest number.
-              count=$newcount                                           #Assign the bigest number to count.
-           fi
-        fi
-       fi
+       if [ ! $debug == '0' ] ; then echo "Existing org: $entry"; fi 
+       newcount=$(echo $entry | cut -d'g' -f 2)     
+       if [ $(($newcount)) -gt $(($count)) ];  then           #Convert to integer and compair
+            count=$newcount
+       fi 
     fi
 done
 
@@ -168,8 +155,6 @@ log info "Group: $nextorg created for $orgname."
 #Create the directory for the organization and a upload directory within.
 newdir='/data/'$nextorg
 uploaddir=$newdir'/upload'
-processdir=$newdir'/processing'
-
 if [ ! -d $newdir ]; then
    if mkdir -p  "$newdir" ; then
       log info "Directory $newdir created."
@@ -190,22 +175,9 @@ if [ ! -d $uploaddir ]; then
       exit 4
    fi
 else
-   log err "Directory $uploaddir exists, exiting"
+   log err "Directory $upload exists, exiting"
    exit 8
 fi
-
-if [ ! -d $processdir ]; then
-   if mkdir -p  "$processdir" ; then
-      log info "Directory $processdir created."
-   else
-      log err "Unable to create directory $processdir, exiting"
-      exit 4
-   fi
-else
-   log err "Directory $processdir exists, exiting"
-   exit 8
-fi
-
 
 chown root:$nextorg $uploaddir
 if [ $? -ne 0 ]; then
@@ -216,12 +188,6 @@ fi
 chmod 770 $uploaddir
 if [ $? -ne 0 ]; then
    log err  "Unable to  chown Directory $uploaddir, termining."
-   exit 8
-fi
-
-chmod 700 $processdir
-if [ $? -ne 0 ]; then
-   log err  "Unable to  chown Directory $processdir, termining."
    exit 8
 fi
 
@@ -257,25 +223,13 @@ if [  -e $sshdfile ] ; then
    echo "      ChrootDirectory  $newdir"                                           >> "$sshdfile" 
    echo "      X11Forwarding no "                                                  >> "$sshdfile"           
    echo "      AllowTcpForwarding no "                                             >> "$sshdfile"
-   echo "      ForceCommand internal-sftp -l INFO "                                >> "$sshdfile"
+   echo "      ForceCommand internal-sftp "                                        >> "$sshdfile"
    echo                                                                            >> "$sshdfile"
    echo                                                                            >> "$sshdfile"
 else
    log err "File $sshdfile does not exist, contact system support. Terminating." 
 fi
 log info "Updated the sshd config file with new organization: $nextorg" 
-
-#
-#
-#  Add logging information to /etc/rsyslog.d/sshd.conf for the new org.	
-#
-#  $insert varrable has the "\"(escape) before the "/" because sed would interpret the "/" and blow up.   
-#
-match="#insert"                                                                              #Match on this string
-insert="input(type=\"imuxsock\" Socket=\"\/data\/$nextorg\/dev\/log\" CreatePath=\"on\")"    #Add this line
-file="/etc/rsyslog.d/sshd.conf"                                                              #To this file
-sed -i "s/$match/$match\n$insert/" $file                                                     #With this command
-systemctl restart rsyslog.service
 
 #
 # Print Summary
